@@ -1,47 +1,10 @@
-# Example terraform.tfvars for Deploy-Open_Claw_AWS.
-# Copy to terraform.tfvars or a *.auto.tfvars file and customize.
-#
-# Secret handling guidance:
-# - Do NOT commit secrets into git.
-# - Prefer environment variables for provider credentials (e.g., AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN).
-# - Put sensitive overrides in local-only files such as secrets.auto.tfvars (gitignored).
-
-# AWS / global
-aws_region   = "us-east-1"
-project_name = "openclaw"
-environment  = "dev"
-tags = {
-  owner      = "platform-team"
-  managed_by = "terraform"
-}
-
-# Network
-vpc_cidr             = "10.10.0.0/16"
-public_subnet_cidrs  = ["10.10.1.0/24", "10.10.2.0/24"]
-private_subnet_cidrs = ["10.10.101.0/24", "10.10.102.0/24"]
-availability_zones   = ["us-east-1a", "us-east-1b"]
-
-# Access / security
-allowed_ssh_cidr      = "203.0.113.10/32" # Replace with your trusted source IP/CIDR.
-ssh_key_name          = "replace-with-existing-keypair"
-instance_profile_name = ""                # Optional existing profile name.
-create_instance_profile = true
-
-# Compute
-ami_id              = null   # Or set explicit AMI: "ami-xxxxxxxxxxxxxxxxx"
-enable_ami_from_ssm = true
-instance_type       = "t3.large"
-root_volume_size_gb = 50
-
-# OpenClaw / Ollama
-openclaw_repo_url = "https://github.com/example/openclaw.git"
-openclaw_repo_ref = "main"
-ollama_version    = "0.3.14"
-ollama_model      = "llama3.1:8b"
-ollama_bind_host  = "127.0.0.1"
-ollama_port       = 11434
-
-# Ops
-enable_cloudwatch_agent = true
-enable_ssm              = true
-ansible_ssh_user        = "ec2-user"
+aws_region           = "us-east-1"
+project_name         = "openclaw"
+environment          = "dev"
+instance_type        = "t3.large"
+ssh_ingress_cidrs    = ["203.0.113.0/24"]
+key_name             = ""
+public_key_path      = "~/.ssh/id_rsa.pub"
+ssh_user             = "ubuntu"
+enable_nat_gateway   = false
+additional_user_data = ""

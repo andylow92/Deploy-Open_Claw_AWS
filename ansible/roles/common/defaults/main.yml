@@ -1,0 +1,3 @@
+---
+common_enable_ufw: true
+common_enable_fail2ban: true
