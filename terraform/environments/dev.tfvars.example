@@ -1,32 +1,25 @@
-# Core
 project_name = "<project-name>"
-environment  = "<environment>"
+environment  = "dev"
 aws_region   = "<aws-region>"
 tags = {
-  Owner       = "<team-or-owner>"
-  Environment = "<environment>"
-  ManagedBy   = "terraform"
+  Environment = "dev"
 }
 
-# Network
 vpc_cidr             = "<vpc-cidr>"
 public_subnet_cidrs  = ["<public-subnet-cidr-1>"]
 private_subnet_cidrs = ["<private-subnet-cidr-1>"]
 availability_zones   = ["<aws-az-1>"]
 
-# Access
 allowed_ssh_cidr = "<trusted-ssh-cidr>"
 ssh_key_name     = "<existing-aws-keypair-name>"
 enable_ssh       = true
 enable_ssm       = true
 
-# Compute
-use_ami_lookup       = true
-ami_id               = "<ami-id-if-not-using-lookup>"
-instance_type        = "<ec2-instance-type>"
-root_volume_size_gb  = 100
+use_ami_lookup      = true
+ami_id              = "<ami-id-if-not-using-lookup>"
+instance_type       = "<ec2-instance-type>"
+root_volume_size_gb = 100
 
-# Services
 openclaw_repo_url = "<openclaw-git-url>"
 openclaw_repo_ref = "<openclaw-git-ref>"
 ollama_version    = "<ollama-version>"
@@ -34,7 +27,6 @@ ollama_model      = "<ollama-model>"
 ollama_bind_host  = "<ollama-bind-host>"
 ollama_port       = 11434
 
-# Ops
 enable_logging         = true
 log_retention_days     = 30
 enable_monitoring      = true
