@@ -139,3 +139,34 @@ After provisioning and configuration:
    - local plan files, state backups, or generated inventory files
 
 3. If applicable, revoke temporary credentials and remove no-longer-needed SSH keys.
+
+## 8) Policy as code (Conftest + Rego)
+
+This repo includes policy checks under `policy/conftest` to prevent insecure Terraform changes.
+
+- Rego deny rules currently enforce:
+  - SSH (22) not open to `0.0.0.0/0`
+  - No unintended public inbound ports
+  - Root EBS volume encryption enabled
+  - IMDSv2 required (`metadata_options.http_tokens = "required"`)
+  - Mandatory tags (`Name`, `Environment`, `Project`, `Owner`)
+
+### Run locally
+
+1. Export plan JSON:
+
+   ```bash
+   ./scripts/export_tf_plan_json.sh
+   ```
+
+2. Run policy checks:
+
+   ```bash
+   ./scripts/run_conftest.sh terraform/tfplan.json
+   ```
+
+3. Run policy unit tests:
+
+   ```bash
+   conftest verify --policy policy/conftest/policy policy/conftest/tests
+   ```

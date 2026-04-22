@@ -1,5 +1,10 @@
 locals {
   name_prefix = "${var.project_name}-${var.environment}"
+  common_tags = {
+    Environment = var.environment
+    Project     = var.project_name
+    Owner       = var.owner
+  }
 }
 
 module "network" {
@@ -19,6 +24,7 @@ module "security" {
   name_prefix       = local.name_prefix
   vpc_id            = module.network.vpc_id
   ssh_ingress_cidrs = var.ssh_ingress_cidrs
+  common_tags       = local.common_tags
 }
 
 module "compute" {
@@ -36,4 +42,5 @@ module "compute" {
   root_volume_size         = var.root_volume_size
   instance_profile_name    = var.instance_profile_name
   additional_user_data     = var.additional_user_data
+  common_tags              = local.common_tags
 }

@@ -50,3 +50,8 @@ variable "additional_user_data" {
   type    = string
   default = ""
 }
+
+variable "common_tags" {
+  type    = map(string)
+  default = {}
+}

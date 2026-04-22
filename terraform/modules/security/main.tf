@@ -34,9 +34,9 @@ resource "aws_security_group" "instance" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
+  tags = merge(var.common_tags, {
     Name = "${var.name_prefix}-instance-sg"
-  }
+  })
 }
 
 resource "aws_network_acl" "default_allow" {
@@ -62,7 +62,7 @@ resource "aws_network_acl" "default_allow" {
     to_port    = 0
   }
 
-  tags = {
+  tags = merge(var.common_tags, {
     Name = "${var.name_prefix}-default-nacl"
-  }
+  })
 }

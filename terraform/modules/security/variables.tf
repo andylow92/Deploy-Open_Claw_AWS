@@ -19,3 +19,8 @@ variable "subnet_ids" {
   type    = list(string)
   default = []
 }
+
+variable "common_tags" {
+  type    = map(string)
+  default = {}
+}

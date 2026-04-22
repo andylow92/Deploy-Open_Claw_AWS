@@ -69,6 +69,11 @@ resource "aws_instance" "this" {
   root_block_device {
     volume_size = var.root_volume_size
     volume_type = "gp3"
+    encrypted   = true
+  }
+
+  metadata_options {
+    http_tokens = "required"
   }
 
   user_data = <<-EOT
@@ -81,7 +86,7 @@ resource "aws_instance" "this" {
     ${var.additional_user_data}
   EOT
 
-  tags = {
+  tags = merge(var.common_tags, {
     Name = "${var.name_prefix}-host"
-  }
+  })
 }

@@ -16,6 +16,12 @@ variable "environment" {
   default     = "dev"
 }
 
+variable "owner" {
+  description = "Owner tag value for managed infrastructure"
+  type        = string
+  default     = "platform"
+}
+
 variable "vpc_cidr" {
   description = "CIDR block for VPC"
   type        = string
