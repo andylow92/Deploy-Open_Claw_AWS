@@ -33,16 +33,49 @@ locals {
         files = {
           collect_list = [
             {
-              file_path      = "/var/log/syslog"
-              log_group_name = "/ec2/${var.name_prefix}/syslog"
+              file_path       = "/var/log/syslog"
+              log_group_name  = "/ec2/${var.name_prefix}/syslog"
               log_stream_name = "{instance_id}"
-              timezone       = "UTC"
+              timezone        = "UTC"
+            },
+            {
+              file_path       = "/var/log/auth.log"
+              log_group_name  = "/ec2/${var.name_prefix}/auth"
+              log_stream_name = "{instance_id}"
+              timezone        = "UTC"
+            },
+            {
+              file_path       = "/var/log/ollama/ollama.log"
+              log_group_name  = "/ec2/${var.name_prefix}/ollama"
+              log_stream_name = "{instance_id}"
+              timezone        = "UTC"
+            },
+            {
+              file_path       = "/var/log/openclaw/openclaw.log"
+              log_group_name  = "/ec2/${var.name_prefix}/openclaw"
+              log_stream_name = "{instance_id}"
+              timezone        = "UTC"
             }
           ]
         }
       }
     }
   })
+
+  managed_log_group_names = var.enable_cloudwatch_agent ? [
+    "/ec2/${var.name_prefix}/syslog",
+    "/ec2/${var.name_prefix}/auth",
+    "/ec2/${var.name_prefix}/ollama",
+    "/ec2/${var.name_prefix}/openclaw",
+  ] : []
+}
+
+resource "aws_cloudwatch_log_group" "this" {
+  for_each = toset(local.managed_log_group_names)
+
+  name              = each.key
+  retention_in_days = var.log_retention_days
+  tags              = var.tags
 }
 
 data "aws_ami" "ubuntu" {
@@ -143,8 +176,11 @@ resource "aws_instance" "this" {
     fi
 
     if [ "${var.enable_cloudwatch_agent}" = "true" ]; then
-      wget -q https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb -O /tmp/amazon-cloudwatch-agent.deb
+      # Pinned CloudWatch agent version from Amazon's official S3 bucket (versioned path is immutable).
+      CW_AGENT_VERSION="${var.cloudwatch_agent_version}"
+      wget -q "https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/$${CW_AGENT_VERSION}/amazon-cloudwatch-agent.deb" -O /tmp/amazon-cloudwatch-agent.deb
       dpkg -i /tmp/amazon-cloudwatch-agent.deb
+      install -d -m 0755 /var/log/ollama /var/log/openclaw
       cat > /opt/aws/amazon-cloudwatch-agent/bin/config.json <<'CWCFG'
 ${local.cloudwatch_config_json}
 CWCFG

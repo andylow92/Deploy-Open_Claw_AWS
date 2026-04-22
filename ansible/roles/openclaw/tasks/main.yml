@@ -7,6 +7,14 @@
     state: present
     update_cache: true
 
+- name: Ensure OpenClaw log directory exists
+  ansible.builtin.file:
+    path: /var/log/openclaw
+    state: directory
+    owner: root
+    group: adm
+    mode: "0750"
+
 - name: Clone OpenClaw repository
   ansible.builtin.git:
     repo: "{{ openclaw_repo_url }}"
@@ -41,6 +49,7 @@
     content: |
       [Unit]
       Description=OpenClaw service
+      Requires=docker.service
       After=network-online.target docker.service
       Wants=network-online.target
 
@@ -48,9 +57,21 @@
       Type=oneshot
       WorkingDirectory={{ openclaw_install_dir }}
       EnvironmentFile={{ openclaw_install_dir }}/.env
-      ExecStart=/usr/bin/docker compose up -d
+      ExecStart=/usr/bin/docker compose up -d --remove-orphans
       ExecStop=/usr/bin/docker compose down
+      ExecReload=/usr/bin/docker compose up -d --force-recreate
       RemainAfterExit=true
+      Restart=on-failure
+      RestartSec=10
+      TimeoutStartSec=300
+      TimeoutStopSec=120
+      StandardOutput=append:/var/log/openclaw/openclaw.log
+      StandardError=append:/var/log/openclaw/openclaw.log
+      # Basic sandboxing compatible with docker-compose invocation.
+      NoNewPrivileges=true
+      ProtectSystem=full
+      ProtectHome=read-only
+      PrivateTmp=true
 
       [Install]
       WantedBy=multi-user.target

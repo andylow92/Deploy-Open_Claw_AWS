@@ -17,6 +17,12 @@ variable "aws_region" {
   default     = "us-east-1"
 }
 
+variable "owner" {
+  description = "Owner (team or individual) responsible for the resources; propagated as an Owner tag."
+  type        = string
+  default     = "platform"
+}
+
 variable "tags" {
   description = "Common tags applied to resources"
   type        = map(string)
@@ -88,32 +94,31 @@ variable "enable_nat_gateway" {
 }
 
 # Access
-variable "allowed_ssh_cidr" {
-  description = "Single CIDR allowed to SSH to host"
-  type        = string
-  default     = "0.0.0.0/0"
+variable "ssh_ingress_cidrs" {
+  description = "List of source CIDRs allowed to SSH to the host. Must not contain 0.0.0.0/0."
+  type        = list(string)
+  default     = ["203.0.113.0/24"]
+
+  validation {
+    condition     = length(var.ssh_ingress_cidrs) > 0
+    error_message = "ssh_ingress_cidrs must contain at least one CIDR."
+  }
+
+  validation {
+    condition     = alltrue([for c in var.ssh_ingress_cidrs : can(cidrnetmask(c))])
+    error_message = "All entries in ssh_ingress_cidrs must be valid IPv4 CIDR blocks."
+  }
+
+  validation {
+    condition     = alltrue([for c in var.ssh_ingress_cidrs : c != "0.0.0.0/0"])
+    error_message = "ssh_ingress_cidrs cannot contain 0.0.0.0/0."
+  }
 }
 
 variable "ssh_key_name" {
-  description = "Existing AWS key pair name for SSH access"
+  description = "Existing AWS key pair name for SSH access (leave empty to create one from public_key_path)"
   type        = string
   default     = ""
-}
-
-variable "allowed_ssh_cidr" {
-  description = "Single source CIDR allowed to SSH to host"
-  type        = string
-  default     = "203.0.113.0/24"
-
-  validation {
-    condition     = can(cidrnetmask(var.allowed_ssh_cidr))
-    error_message = "allowed_ssh_cidr must be a valid IPv4 CIDR block."
-  }
-
-  validation {
-    condition     = var.allowed_ssh_cidr != "0.0.0.0/0"
-    error_message = "allowed_ssh_cidr cannot be 0.0.0.0/0."
-  }
 }
 
 variable "instance_egress_policies" {
@@ -166,12 +171,6 @@ variable "instance_egress_policies" {
   }
 }
 
-variable "key_name" {
-  description = "Existing AWS key pair name (deprecated: use ssh_key_name)"
-  type        = string
-  default     = ""
-}
-
 variable "public_key_path" {
   description = "Path to a local public key file used to create key pair when key_name is empty"
   type        = string
@@ -207,13 +206,11 @@ variable "root_volume_size_gb" {
   description = "Root EBS volume size in GiB"
   type        = number
   default     = 100
-}
 
-# Backward-compatible compute variable
-variable "root_volume_size" {
-  description = "Root EBS volume size in GiB (deprecated: use root_volume_size_gb)"
-  type        = number
-  default     = 100
+  validation {
+    condition     = var.root_volume_size_gb >= 20
+    error_message = "root_volume_size_gb must be at least 20 GiB."
+  }
 }
 
 # Services
