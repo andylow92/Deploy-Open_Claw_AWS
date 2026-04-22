@@ -1,0 +1,29 @@
+---
+- name: Install Ollama
+  ansible.builtin.shell: |
+    set -o pipefail
+    curl -fsSL https://ollama.com/install.sh | sh
+  args:
+    creates: /usr/local/bin/ollama
+    executable: /bin/bash
+
+- name: Ensure Ollama systemd override directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/system/{{ ollama_service_name }}.service.d
+    state: directory
+    mode: "0755"
+
+- name: Configure Ollama bind address override
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/{{ ollama_service_name }}.service.d/override.conf
+    mode: "0644"
+    content: |
+      [Service]
+      Environment="OLLAMA_HOST={{ ollama_bind_address }}"
+  notify: Restart ollama
+
+- name: Ensure Ollama service is enabled and started
+  ansible.builtin.service:
+    name: "{{ ollama_service_name }}"
+    state: started
+    enabled: true
