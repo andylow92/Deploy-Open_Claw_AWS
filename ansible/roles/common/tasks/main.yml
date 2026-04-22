@@ -3,6 +3,7 @@
   ansible.builtin.apt:
     update_cache: true
     upgrade: dist
+    autoremove: true
     cache_valid_time: 3600
 
 - name: Install baseline hardening packages
@@ -16,10 +17,42 @@
       - unattended-upgrades
     state: present
 
-- name: Allow OpenSSH through UFW
+- name: Configure unattended security updates
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+- name: Set UFW default incoming policy to deny
+  community.general.ufw:
+    direction: incoming
+    policy: deny
+  when: common_enable_ufw
+
+- name: Set UFW default outgoing policy to allow
+  community.general.ufw:
+    direction: outgoing
+    policy: allow
+  when: common_enable_ufw
+
+- name: Allow loopback traffic via UFW
   community.general.ufw:
     rule: allow
-    name: OpenSSH
+    interface: lo
+    direction: in
+  when: common_enable_ufw
+
+- name: Allow OpenSSH only from management CIDRs
+  community.general.ufw:
+    rule: allow
+    proto: tcp
+    port: "22"
+    src: "{{ item }}"
+  loop: "{{ common_management_cidrs }}"
   when: common_enable_ufw
 
 - name: Enable UFW
@@ -33,3 +66,22 @@
     state: started
     enabled: true
   when: common_enable_fail2ban
+
+- name: Disable unused services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop: "{{ common_disable_services }}"
+  failed_when: false
+
+- name: Apply secure SSH daemon defaults
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: "^#?{{ item.key }}\\s+"
+    line: "{{ item.key }} {{ item.value }}"
+    state: present
+    backup: true
+    validate: "/usr/sbin/sshd -t -f %s"
+  loop: "{{ common_sshd_settings | dict2items }}"
+  notify: Restart sshd

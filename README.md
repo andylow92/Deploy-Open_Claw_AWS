@@ -1,228 +1,62 @@
-# Deploy OpenClaw + Ollama on AWS (Private App Access)
+# Deploy OpenClaw + Ollama on AWS
 
-This repository provisions an AWS environment for running OpenClaw and Ollama on an EC2 instance with SSH access restricted by CIDR and **no public ingress** to application ports.
+This repository provides a clean infrastructure + configuration layout for deploying OpenClaw and Ollama on AWS using Terraform, Ansible, and policy-as-code checks.
 
-## 1) Architecture
+## Top-level architecture
 
-### High-level layout
+- **Terraform (`terraform/`)** provisions cloud resources through reusable modules:
+  - `modules/network`: VPC/subnet networking
+  - `modules/security`: security groups and ingress controls
+  - `modules/compute`: EC2 host(s) for OpenClaw + Ollama
+- **Ansible (`ansible/`)** configures the provisioned hosts with common baseline setup plus service-specific roles.
+- **Policy (`policy/conftest/`)** enforces baseline guardrails against Terraform plan output with OPA/Conftest.
+- **Scripts (`scripts/`)** automate common workflows (plan export, inventory generation, deployment).
 
-- A single **VPC** containing at least one subnet used by the EC2 host.
-- The EC2 instance runs both OpenClaw and Ollama services.
-- A security group controls inbound access.
+## Repository structure
 
 ```text
-                        Internet
-                            |
-                     SSH (22/TCP only)
-                 from allowed_ssh_cidr only
-                            |
-+----------------------------------------------------------------+
-|                              VPC                               |
-|                                                                |
-|   +-------------------------- Subnet ------------------------+  |
-|   |                                                         |  |
-|   |  EC2 Instance                                           |  |
-|   |  - OpenClaw service (local/private access only)         |  |
-|   |  - Ollama service (local/private access only)           |  |
-|   |                                                         |  |
-|   |  Ingress allowed: 22/TCP from allowed_ssh_cidr         |  |
-|   |  Ingress denied: OpenClaw/Ollama public ports           |  |
-|   +---------------------------------------------------------+  |
-|                                                                |
-+----------------------------------------------------------------+
+terraform/
+  providers.tf
+  versions.tf
+  main.tf
+  variables.tf
+  outputs.tf
+  modules/
+    network/
+    security/
+    compute/
+  environments/
+    dev/terraform.tfvars
+    prod/terraform.tfvars
+ansible/
+  playbooks/site.yml
+  inventory/
+  roles/
+    common/
+    ollama/
+    openclaw/
+policy/
+  conftest/
+    main.rego
+    terraform/
+      security.rego
+      network.rego
+      compute.rego
+scripts/
+README.md
+docs/
+  runbooks/
 ```
 
-### Ingress model
+## Expected deployment flow
 
-- **SSH access** is limited to `allowed_ssh_cidr`.
-- **No public ingress** is exposed for OpenClaw/Ollama service ports.
-- App access should occur only locally on the instance, through private networking, or via explicit secure tunneling if needed.
-
-## 2) Prerequisites
-
-- **Terraform**: use a current, team-approved version (recommended: `>= 1.5.x`).
-- **Ansible**: use a current stable release (recommended: `>= 2.15`).
-- **AWS account credentials** configured locally (for example via AWS CLI profiles or environment variables).
-- IAM principal used for deployment should have permissions for resources managed by this stack, typically including:
-  - VPC/networking (VPC, subnets, route tables, security groups)
-  - EC2 instances, key pair usage, and related metadata
-  - IAM actions only if your Terraform configuration creates/updates IAM resources
-  - Read/write access to Terraform backend resources (if remote state is used)
-
-## 3) Configuration
-
-1. Copy the example variable file:
-
-   ```bash
-   cp terraform.tfvars.example terraform.tfvars
-   ```
-
-2. Edit `terraform.tfvars` and set:
-
-   - `allowed_ssh_cidr` to your fixed public IP/CIDR (for example `203.0.113.10/32`).
-
-3. Review any additional variables (region, instance size, key name, tags, etc.) before provisioning.
-
-## 4) Provisioning workflow
-
-From the repository root:
-
-1. Initialize Terraform:
-
-   ```bash
-   terraform init
-   ```
-
-2. Review planned changes:
-
-   ```bash
-   terraform plan
-   ```
-
-3. Apply infrastructure:
-
-   ```bash
-   terraform apply
-   ```
-
-4. Export required Terraform outputs for Ansible inventory/vars (adjust output names to your module):
-
-   ```bash
-   terraform output -json > terraform-outputs.json
-   ```
-
-5. Run the Ansible playbook to configure services:
-
-   ```bash
-   ansible-playbook -i inventory.ini playbook.yml
-   ```
-
-## 5) Verification
-
-After provisioning and configuration:
-
-1. **SSH from allowed IP works**
-   - From a client within `allowed_ssh_cidr`, confirm SSH succeeds.
-
-2. **SSH from non-allowed IP is denied**
-   - Attempt SSH from a different source IP/CIDR and confirm timeout/denial.
-
-3. **OpenClaw service healthy on instance (local check)**
-   - SSH to EC2 and verify service status / local endpoint (for example `curl localhost:<port>/health`).
-
-4. **Ollama service running and model available**
-   - On the instance, confirm service is active and list/test model availability (for example with `ollama list` or equivalent health check).
-
-## 6) Security notes
-
-- **No public app ports**: Keeping OpenClaw/Ollama ports private reduces attack surface and prevents unsolicited internet access to inference/application endpoints.
-- **Patching and updates**:
-  - Regularly patch the EC2 OS and packages.
-  - Keep OpenClaw/Ollama and automation dependencies up to date.
-  - Rebuild/redeploy on a defined cadence.
-- **Keys and IAM hygiene**:
-  - Rotate SSH keys and any API credentials regularly.
-  - Use least-privilege IAM policies for both humans and automation roles.
-  - Prefer short-lived credentials (role assumption) over long-lived static keys.
-
-## 7) Destroy and cleanup
-
-1. Tear down infrastructure:
-
-   ```bash
-   terraform destroy
-   ```
-
-2. Remove local artifacts that may contain sensitive or environment-specific data, such as:
-   - `terraform.tfvars` (if it contains sensitive values)
-   - `terraform-outputs.json`
-   - local plan files, state backups, or generated inventory files
-
-3. If applicable, revoke temporary credentials and remove no-longer-needed SSH keys.
-
-## 8) Delivery phases, exit criteria, and policy gates
-
-The implementation and rollout order is fixed. Each phase has explicit exit criteria and a mandatory policy gate. **No phase may begin until the current phase criteria are met and policy checks pass.**
-
-### Global gating rule (applies to all phases)
-
-Before moving from one phase to the next, run policy checks and ensure they are green:
-
-```bash
-conftest test terraform/**/*.tf
-conftest test ansible/**/*.yml
-```
-
-For CI, enforce the same gate by failing the pipeline when any Conftest policy fails.
-
-### Phase 1: Terraform core modules + variables + tfvars examples
-
-**Scope**
-- Validate and complete `network`, `compute`, and `security` module boundaries.
-- Ensure root module wiring, input variables, outputs, and example tfvars are consistent.
-
-**Exit criteria**
-- `terraform fmt -check`, `terraform validate`, and `terraform plan` complete successfully.
-- Root/module variables are documented and have sensible defaults or validation.
-- `terraform/terraform.tfvars.example` contains all required non-secret inputs.
-- Conftest policies for Terraform pass.
-
-### Phase 2: Ansible common hardening + connectivity validation
-
-**Scope**
-- Implement baseline host hardening in the `common` role.
-- Validate SSH connectivity and expected host reachability for managed nodes.
-
-**Exit criteria**
-- `ansible-playbook --syntax-check ansible/playbooks/site.yml` passes.
-- `ansible all -m ping` (or playbook preflight equivalent) succeeds for target hosts.
-- Hardening tasks are idempotent (second run reports no unexpected changes).
-- Conftest policies for Ansible pass.
-
-### Phase 3: Ollama deployment role + model pull verification
-
-**Scope**
-- Deploy and configure Ollama service via `ansible/roles/ollama`.
-- Pull required model(s) and verify runtime availability.
-
-**Exit criteria**
-- Ollama service is enabled and running after playbook execution.
-- Model pull tasks complete without error and are idempotent.
-- Verification command (for example `ollama list`) confirms required model presence.
-- Conftest policies for Ansible pass.
-
-### Phase 4: OpenClaw deployment + service integration tests
-
-**Scope**
-- Deploy OpenClaw via `ansible/roles/openclaw`.
-- Confirm OpenClaw can interact with local Ollama endpoint as designed.
-
-**Exit criteria**
-- OpenClaw service starts successfully and remains healthy.
-- Integration checks confirm OpenClaw↔Ollama connectivity and expected response path.
-- Local/private access model remains enforced (no unintended public ingress).
-- Conftest policies for Terraform and Ansible pass.
-
-### Phase 5: OPA/Rego Conftest policies and CI enforcement
-
-**Scope**
-- Finalize policy set covering Terraform and Ansible controls.
-- Wire Conftest execution into CI as a required status check.
-
-**Exit criteria**
-- Rego policies exist for baseline network, access, and service security controls.
-- CI job runs Conftest on each PR and blocks merge on failures.
-- Policy exceptions (if any) are documented with owner and expiration.
-- Conftest policy suite passes in local and CI runs.
-
-### Phase 6: Documentation and runbooks finalization
-
-**Scope**
-- Finalize operator documentation, deployment runbook, troubleshooting, and rollback steps.
-- Align docs with the actual Terraform/Ansible workflows and CI gates.
-
-**Exit criteria**
-- README and runbooks contain end-to-end build, deploy, verify, and destroy procedures.
-- Incident/recovery steps include service restart, model re-pull, and rollback guidance.
-- All command examples are validated against the current repository layout.
-- Final Conftest policy checks pass before release sign-off.
+1. **Select environment variables** from `terraform/environments/<env>/terraform.tfvars` and adjust values as needed.
+2. **Initialize and plan Terraform**, then export the plan JSON for policy checks:
+   - `./scripts/export_plan.sh`
+3. **Run policy checks** using Conftest against `terraform/tfplan.json`.
+4. **Apply Terraform** to create/update AWS infrastructure.
+5. **Generate Ansible inventory** from Terraform outputs:
+   - `./scripts/generate_inventory.sh`
+6. **Configure host(s)** with Ansible:
+   - `./scripts/deploy.sh`
+7. **Operate and maintain** with documented procedures in `docs/runbooks/`.

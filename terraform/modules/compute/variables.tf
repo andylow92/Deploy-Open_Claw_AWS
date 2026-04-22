@@ -46,7 +46,31 @@ variable "instance_profile_name" {
   default = ""
 }
 
+variable "enable_ssm" {
+  description = "Whether to enable AWS Systems Manager integration for the instance"
+  type        = bool
+  default     = true
+}
+
+variable "enable_cloudwatch_agent" {
+  description = "Whether to install CloudWatch agent and grant it permissions"
+  type        = bool
+  default     = false
+}
+
+variable "ssm_preferred_access" {
+  description = "If true, avoid assigning an SSH key to the instance and favor SSM Session Manager access"
+  type        = bool
+  default     = false
+}
+
 variable "additional_user_data" {
   type    = string
   default = ""
+}
+
+variable "tags" {
+  description = "Common tags applied to compute resources"
+  type        = map(string)
+  default     = {}
 }
