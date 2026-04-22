@@ -18,6 +18,21 @@ output "instance_public_ip" {
   value       = module.compute.public_ip
 }
 
+output "instance_private_ip" {
+  description = "Private IP"
+  value       = module.compute.private_ip
+}
+
+output "instance_public_dns" {
+  description = "Public DNS for SSH/Ansible"
+  value       = module.compute.public_dns
+}
+
+output "instance_private_dns" {
+  description = "Private DNS"
+  value       = module.compute.private_dns
+}
+
 output "ssh_user" {
   description = "SSH user for Ansible inventory"
   value       = module.compute.ssh_user
@@ -26,4 +41,9 @@ output "ssh_user" {
 output "ansible_host" {
   description = "Preferred host target for Ansible"
   value       = module.compute.public_ip
+}
+
+output "environment_tags" {
+  description = "Environment tags for Ansible and tooling"
+  value       = module.compute.instance_tags
 }
