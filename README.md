@@ -61,7 +61,14 @@ This repository provisions an AWS environment for running OpenClaw and Ollama on
 
    - `allowed_ssh_cidr` to your fixed public IP/CIDR (for example `203.0.113.10/32`).
 
-3. Review any additional variables (region, instance size, key name, tags, etc.) before provisioning.
+3. Review any additional variables before provisioning. Important hardening-focused inputs include:
+
+   - `ami_id` (optional explicit AMI override)
+   - `instance_type`
+   - `root_volume_size`
+   - `key_name` (or `public_key_path`)
+   - `enable_ssm` and `ssm_preferred_access` for Session Manager-first access
+   - `enable_cloudwatch_agent` for host metric/log shipping
 
 ## 4) Provisioning workflow
 
@@ -139,3 +146,29 @@ After provisioning and configuration:
    - local plan files, state backups, or generated inventory files
 
 3. If applicable, revoke temporary credentials and remove no-longer-needed SSH keys.
+
+
+## 8) Break-glass access runbook
+
+Use this procedure when normal access (SSM/SSH) is unavailable and emergency host access is required.
+
+1. **Open an incident + approval record**
+   - Document ticket number, approver, operator, and reason for break-glass access.
+
+2. **Prefer AWS Systems Manager Session Manager first**
+   - Confirm `enable_ssm = true` and instance IAM profile includes `AmazonSSMManagedInstanceCore`.
+   - Start a session:
+     ```bash
+     aws ssm start-session --target <instance-id>
+     ```
+
+3. **Temporary SSH fallback (time-boxed)**
+   - If SSM is unavailable, add a temporary trusted source CIDR to `ssh_ingress_cidrs` and apply Terraform.
+   - If `ssm_preferred_access = true`, temporarily set it to `false` and provide `key_name` (or `public_key_path`) so the host accepts SSH key auth.
+   - Access host, perform remediation, and capture full command transcript.
+
+4. **Post-incident rollback**
+   - Remove temporary SSH CIDRs.
+   - Restore `ssm_preferred_access` and key settings to baseline.
+   - Rotate any credentials used during incident response.
+   - Attach evidence (Terraform plan/apply logs, shell transcript) to the incident record.

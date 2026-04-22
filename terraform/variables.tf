@@ -94,6 +94,25 @@ variable "instance_profile_name" {
   default     = ""
 }
 
+
+variable "enable_ssm" {
+  description = "Enable AWS Systems Manager access and required instance permissions"
+  type        = bool
+  default     = true
+}
+
+variable "enable_cloudwatch_agent" {
+  description = "Enable CloudWatch agent installation and IAM permissions"
+  type        = bool
+  default     = false
+}
+
+variable "ssm_preferred_access" {
+  description = "Prefer SSM-first access by not assigning an SSH key to the instance"
+  type        = bool
+  default     = false
+}
+
 variable "additional_user_data" {
   description = "Optional additional cloud-init shell snippet appended to user_data"
   type        = string
