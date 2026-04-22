@@ -6,8 +6,9 @@ variable "vpc_id" {
   type = string
 }
 
-variable "allowed_ssh_cidr" {
-  type = string
+variable "ssh_ingress_cidrs" {
+  description = "List of source CIDRs allowed to SSH to the host."
+  type        = list(string)
 }
 
 variable "instance_egress_policies" {

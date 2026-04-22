@@ -69,6 +69,18 @@ variable "additional_user_data" {
   default = ""
 }
 
+variable "log_retention_days" {
+  description = "CloudWatch Logs retention (in days) for log groups managed by this module."
+  type        = number
+  default     = 30
+}
+
+variable "cloudwatch_agent_version" {
+  description = "Amazon CloudWatch agent version folder in the amazoncloudwatch-agent S3 bucket. Set to a specific version (e.g. \"1.300054.0b1096\") to pin; 'latest' is Amazon-maintained but mutable."
+  type        = string
+  default     = "latest"
+}
+
 variable "tags" {
   description = "Common tags applied to compute resources"
   type        = map(string)

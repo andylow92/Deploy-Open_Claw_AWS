@@ -10,10 +10,9 @@ public_subnet_cidrs  = ["<public-subnet-cidr-1>", "<public-subnet-cidr-2>"]
 private_subnet_cidrs = ["<private-subnet-cidr-1>", "<private-subnet-cidr-2>"]
 availability_zones   = ["<aws-az-1>", "<aws-az-2>"]
 
-allowed_ssh_cidr = "<trusted-ssh-cidr>"
-ssh_key_name     = "<existing-aws-keypair-name>"
-enable_ssh       = true
-enable_ssm       = true
+ssh_ingress_cidrs = ["<trusted-bastion-cidr-1>", "<trusted-bastion-cidr-2>"]
+ssh_key_name      = "<existing-aws-keypair-name>"
+enable_ssm        = true
 
 use_ami_lookup      = true
 ami_id              = "<ami-id-if-not-using-lookup>"

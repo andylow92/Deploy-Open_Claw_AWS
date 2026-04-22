@@ -22,8 +22,18 @@ jobs:
           terraform_version: 1.8.5
 
       - name: Install conftest
+        env:
+          CONFTEST_VERSION: "0.58.0"
+          # TODO: populate CONFTEST_SHA256 with the upstream checksum from
+          # https://github.com/open-policy-agent/conftest/releases/tag/v0.58.0
+          # and uncomment the `sha256sum -c -` line below to enforce supply-chain integrity.
+          CONFTEST_SHA256: ""
         run: |
-          curl -sSL https://github.com/open-policy-agent/conftest/releases/download/v0.58.0/conftest_0.58.0_Linux_x86_64.tar.gz -o conftest.tar.gz
+          set -euo pipefail
+          curl -fsSL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" -o conftest.tar.gz
+          if [ -n "${CONFTEST_SHA256}" ]; then
+            echo "${CONFTEST_SHA256}  conftest.tar.gz" | sha256sum -c -
+          fi
           tar -xzf conftest.tar.gz conftest
           sudo mv conftest /usr/local/bin/conftest
           conftest --version
@@ -45,14 +55,16 @@ jobs:
       - name: Conftest policy checks
         run: conftest test tfplan.json --policy ../policy/conftest/policy --output table
 
-      - name: Optional tfsec
-        continue-on-error: true
-        run: |
-          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
-          ./bin/tfsec --no-color
+      - name: tfsec (blocking)
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: terraform
+          soft_fail: false
 
-      - name: Optional checkov
-        continue-on-error: true
-        run: |
-          python3 -m pip install --user checkov
-          ~/.local/bin/checkov -d .
+      - name: Checkov (blocking)
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: terraform
+          framework: terraform
+          soft_fail: false
+          quiet: true

@@ -6,3 +6,9 @@ ollama_bind_port: 11434
 ollama_models: []
 ollama_healthcheck_scheme: http
 ollama_healthcheck_path: /api/tags
+
+# Pin the installer to an immutable version tag instead of the mutable
+# https://ollama.com/install.sh endpoint. Override to a commit SHA for stricter pinning.
+ollama_install_script_url: "https://raw.githubusercontent.com/ollama/ollama/v{{ ollama_version }}/scripts/install.sh"
+# Optional: if set, the install script download is verified against this SHA256.
+ollama_install_script_sha256: ""

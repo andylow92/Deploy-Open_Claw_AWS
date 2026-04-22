@@ -18,13 +18,21 @@
   changed_when: false
   when: ollama_binary_stat.stat.exists
 
-- name: Install or update pinned Ollama version
-  ansible.builtin.shell: |
-    set -o pipefail
-    OLLAMA_VERSION="{{ ollama_version }}" curl -fsSL https://ollama.com/install.sh | sh
-  args:
-    executable: /bin/bash
+- name: Download pinned Ollama install script
+  ansible.builtin.get_url:
+    url: "{{ ollama_install_script_url }}"
+    dest: /usr/local/src/ollama-install.sh
+    mode: "0755"
+    checksum: "{{ 'sha256:' + ollama_install_script_sha256 if ollama_install_script_sha256 | length > 0 else omit }}"
   when: not ollama_binary_stat.stat.exists or (ollama_version_check.stdout | regex_search('[0-9]+\\.[0-9]+\\.[0-9]+')) != ollama_version
+
+- name: Install or update pinned Ollama version
+  ansible.builtin.command:
+    cmd: /usr/local/src/ollama-install.sh
+  environment:
+    OLLAMA_VERSION: "{{ ollama_version }}"
+  when: not ollama_binary_stat.stat.exists or (ollama_version_check.stdout | regex_search('[0-9]+\\.[0-9]+\\.[0-9]+')) != ollama_version
+  changed_when: true
 
 - name: Ensure Ollama systemd override directory exists
   ansible.builtin.file:
