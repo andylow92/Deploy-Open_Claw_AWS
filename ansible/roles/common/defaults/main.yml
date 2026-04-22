@@ -1,3 +1,17 @@
 ---
 common_enable_ufw: true
 common_enable_fail2ban: true
+common_management_cidrs:
+  - 127.0.0.1/32
+common_disable_services:
+  - apport
+  - avahi-daemon
+common_sshd_settings:
+  PermitRootLogin: "no"
+  PasswordAuthentication: "no"
+  KbdInteractiveAuthentication: "no"
+  ChallengeResponseAuthentication: "no"
+  X11Forwarding: "no"
+  MaxAuthTries: "3"
+  ClientAliveInterval: "300"
+  ClientAliveCountMax: "2"

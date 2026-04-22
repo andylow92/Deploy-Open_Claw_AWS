@@ -1,3 +1,8 @@
 ---
 ollama_service_name: ollama
-ollama_bind_address: "0.0.0.0:11434"
+ollama_version: "0.9.7"
+ollama_bind_host: "127.0.0.1"
+ollama_bind_port: 11434
+ollama_models: []
+ollama_healthcheck_scheme: http
+ollama_healthcheck_path: /api/tags

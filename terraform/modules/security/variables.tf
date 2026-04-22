@@ -6,8 +6,18 @@ variable "vpc_id" {
   type = string
 }
 
-variable "ssh_ingress_cidrs" {
-  type = list(string)
+variable "allowed_ssh_cidr" {
+  type = string
+}
+
+variable "instance_egress_policies" {
+  type = list(object({
+    description = string
+    from_port   = number
+    to_port     = number
+    protocol    = string
+    cidr_blocks = list(string)
+  }))
 }
 
 variable "create_default_nacl" {
@@ -20,7 +30,8 @@ variable "subnet_ids" {
   default = []
 }
 
-variable "common_tags" {
-  type    = map(string)
-  default = {}
+variable "tags" {
+  description = "Common tags applied to security resources"
+  type        = map(string)
+  default     = {}
 }
