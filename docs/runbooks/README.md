@@ -1,6 +1,9 @@
 # Runbooks
 
-- [Validation Checklist](validation-checklist.md)
-- [Policy-as-Code (Conftest)](policy-as-code.md)
-- [Teardown and Recovery](teardown-and-recovery.md)
-- [Update and Patch Management](update-and-patch-management.md)
+Operational runbooks for day-2 operations should be stored in this directory.
+
+Suggested runbooks:
+- provisioning.md
+- rollback.md
+- incident-response.md
+- backup-and-restore.md
