@@ -43,6 +43,9 @@ module "compute" {
   ssh_user                 = var.ssh_user
   root_volume_size         = var.root_volume_size
   instance_profile_name    = var.instance_profile_name
+  enable_ssm              = var.enable_ssm
+  enable_cloudwatch_agent = var.enable_cloudwatch_agent
+  ssm_preferred_access    = var.ssm_preferred_access
   additional_user_data     = var.additional_user_data
   tags                     = local.common_tags
 }
