@@ -21,4 +21,15 @@ variable "availability_zones" {
 variable "enable_nat_gateway" {
   type    = bool
   default = false
+
+  validation {
+    condition     = var.enable_nat_gateway ? length(var.public_subnet_cidrs) > 0 : true
+    error_message = "enable_nat_gateway requires at least one public subnet."
+  }
+}
+
+variable "tags" {
+  description = "Common tags applied to network resources"
+  type        = map(string)
+  default     = {}
 }

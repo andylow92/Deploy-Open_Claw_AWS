@@ -68,3 +68,9 @@ variable "additional_user_data" {
   type    = string
   default = ""
 }
+
+variable "tags" {
+  description = "Common tags applied to compute resources"
+  type        = map(string)
+  default     = {}
+}
