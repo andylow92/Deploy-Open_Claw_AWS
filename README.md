@@ -139,3 +139,90 @@ After provisioning and configuration:
    - local plan files, state backups, or generated inventory files
 
 3. If applicable, revoke temporary credentials and remove no-longer-needed SSH keys.
+
+## 8) Delivery phases, exit criteria, and policy gates
+
+The implementation and rollout order is fixed. Each phase has explicit exit criteria and a mandatory policy gate. **No phase may begin until the current phase criteria are met and policy checks pass.**
+
+### Global gating rule (applies to all phases)
+
+Before moving from one phase to the next, run policy checks and ensure they are green:
+
+```bash
+conftest test terraform/**/*.tf
+conftest test ansible/**/*.yml
+```
+
+For CI, enforce the same gate by failing the pipeline when any Conftest policy fails.
+
+### Phase 1: Terraform core modules + variables + tfvars examples
+
+**Scope**
+- Validate and complete `network`, `compute`, and `security` module boundaries.
+- Ensure root module wiring, input variables, outputs, and example tfvars are consistent.
+
+**Exit criteria**
+- `terraform fmt -check`, `terraform validate`, and `terraform plan` complete successfully.
+- Root/module variables are documented and have sensible defaults or validation.
+- `terraform/terraform.tfvars.example` contains all required non-secret inputs.
+- Conftest policies for Terraform pass.
+
+### Phase 2: Ansible common hardening + connectivity validation
+
+**Scope**
+- Implement baseline host hardening in the `common` role.
+- Validate SSH connectivity and expected host reachability for managed nodes.
+
+**Exit criteria**
+- `ansible-playbook --syntax-check ansible/playbooks/site.yml` passes.
+- `ansible all -m ping` (or playbook preflight equivalent) succeeds for target hosts.
+- Hardening tasks are idempotent (second run reports no unexpected changes).
+- Conftest policies for Ansible pass.
+
+### Phase 3: Ollama deployment role + model pull verification
+
+**Scope**
+- Deploy and configure Ollama service via `ansible/roles/ollama`.
+- Pull required model(s) and verify runtime availability.
+
+**Exit criteria**
+- Ollama service is enabled and running after playbook execution.
+- Model pull tasks complete without error and are idempotent.
+- Verification command (for example `ollama list`) confirms required model presence.
+- Conftest policies for Ansible pass.
+
+### Phase 4: OpenClaw deployment + service integration tests
+
+**Scope**
+- Deploy OpenClaw via `ansible/roles/openclaw`.
+- Confirm OpenClaw can interact with local Ollama endpoint as designed.
+
+**Exit criteria**
+- OpenClaw service starts successfully and remains healthy.
+- Integration checks confirm OpenClaw↔Ollama connectivity and expected response path.
+- Local/private access model remains enforced (no unintended public ingress).
+- Conftest policies for Terraform and Ansible pass.
+
+### Phase 5: OPA/Rego Conftest policies and CI enforcement
+
+**Scope**
+- Finalize policy set covering Terraform and Ansible controls.
+- Wire Conftest execution into CI as a required status check.
+
+**Exit criteria**
+- Rego policies exist for baseline network, access, and service security controls.
+- CI job runs Conftest on each PR and blocks merge on failures.
+- Policy exceptions (if any) are documented with owner and expiration.
+- Conftest policy suite passes in local and CI runs.
+
+### Phase 6: Documentation and runbooks finalization
+
+**Scope**
+- Finalize operator documentation, deployment runbook, troubleshooting, and rollback steps.
+- Align docs with the actual Terraform/Ansible workflows and CI gates.
+
+**Exit criteria**
+- README and runbooks contain end-to-end build, deploy, verify, and destroy procedures.
+- Incident/recovery steps include service restart, model re-pull, and rollback guidance.
+- All command examples are validated against the current repository layout.
+- Final Conftest policy checks pass before release sign-off.
