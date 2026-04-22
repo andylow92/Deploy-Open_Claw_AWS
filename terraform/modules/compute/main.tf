@@ -81,7 +81,7 @@ resource "aws_instance" "this" {
     ${var.additional_user_data}
   EOT
 
-  tags = {
+  tags = merge(var.tags, {
     Name = "${var.name_prefix}-host"
-  }
+  })
 }

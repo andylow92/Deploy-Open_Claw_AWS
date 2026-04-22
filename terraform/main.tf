@@ -1,5 +1,10 @@
 locals {
   name_prefix = "${var.project_name}-${var.environment}"
+  common_tags = {
+    Project     = var.project_name
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
 }
 
 module "network" {
@@ -11,14 +16,17 @@ module "network" {
   private_subnet_cidrs = var.private_subnet_cidrs
   availability_zones   = var.availability_zones
   enable_nat_gateway   = var.enable_nat_gateway
+  tags                 = local.common_tags
 }
 
 module "security" {
   source = "./modules/security"
 
-  name_prefix       = local.name_prefix
-  vpc_id            = module.network.vpc_id
-  ssh_ingress_cidrs = var.ssh_ingress_cidrs
+  name_prefix              = local.name_prefix
+  vpc_id                   = module.network.vpc_id
+  allowed_ssh_cidr         = var.allowed_ssh_cidr
+  instance_egress_policies = var.instance_egress_policies
+  tags                     = local.common_tags
 }
 
 module "compute" {
@@ -36,4 +44,5 @@ module "compute" {
   root_volume_size         = var.root_volume_size
   instance_profile_name    = var.instance_profile_name
   additional_user_data     = var.additional_user_data
+  tags                     = local.common_tags
 }
