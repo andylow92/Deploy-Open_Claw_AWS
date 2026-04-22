@@ -38,10 +38,10 @@ module "compute" {
   security_group_ids       = [module.security.instance_sg_id]
   instance_type            = var.instance_type
   ami_id                   = var.ami_id
-  key_name                 = var.key_name
+  key_name                 = local.effective_key_name
   public_key_path          = var.public_key_path
   ssh_user                 = var.ssh_user
-  root_volume_size         = var.root_volume_size
+  root_volume_size         = var.root_volume_size_gb
   instance_profile_name    = var.instance_profile_name
   enable_ssm              = var.enable_ssm
   enable_cloudwatch_agent = var.enable_cloudwatch_agent
