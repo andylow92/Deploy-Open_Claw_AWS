@@ -1,141 +1,122 @@
 # Deploy OpenClaw + Ollama on AWS (Private App Access)
 
-This repository provisions an AWS environment for running OpenClaw and Ollama on an EC2 instance with SSH access restricted by CIDR and **no public ingress** to application ports.
+This repository provisions AWS infrastructure with Terraform and configures an EC2 host with Ansible to run OpenClaw and Ollama.
 
-## 1) Architecture
+The target operating model is:
+- SSH limited to explicitly allowed source CIDRs.
+- No direct public ingress to OpenClaw/Ollama application endpoints.
+- Service health validation after each deployment.
+- Policy-as-code checks before Terraform apply.
 
-### High-level layout
+## Repository layout
 
-- A single **VPC** containing at least one subnet used by the EC2 host.
-- The EC2 instance runs both OpenClaw and Ollama services.
-- A security group controls inbound access.
+- `terraform/`: infrastructure provisioning.
+- `ansible/`: host configuration and service deployment.
+- `scripts/`: helper scripts for inventory generation and deployment.
+- `docs/runbooks/`: operational runbooks (deployment, validation, policy checks, teardown/recovery, and patching guidance).
 
-```text
-                        Internet
-                            |
-                     SSH (22/TCP only)
-                 from allowed_ssh_cidr only
-                            |
-+----------------------------------------------------------------+
-|                              VPC                               |
-|                                                                |
-|   +-------------------------- Subnet ------------------------+  |
-|   |                                                         |  |
-|   |  EC2 Instance                                           |  |
-|   |  - OpenClaw service (local/private access only)         |  |
-|   |  - Ollama service (local/private access only)           |  |
-|   |                                                         |  |
-|   |  Ingress allowed: 22/TCP from allowed_ssh_cidr         |  |
-|   |  Ingress denied: OpenClaw/Ollama public ports           |  |
-|   +---------------------------------------------------------+  |
-|                                                                |
-+----------------------------------------------------------------+
+## 1) Prerequisites and tool versions
+
+Install these tools before running any workflow:
+
+- Terraform `~> 1.5` or newer compatible release.
+- Ansible `>= 2.15`.
+- `jq` (required by `scripts/generate_inventory.sh`).
+- AWS CLI v2 (recommended for credential/profile management).
+- OpenSSH client.
+- Optional but recommended:
+  - Conftest (for policy-as-code checks).
+
+Quick version checks:
+
+```bash
+terraform version
+ansible --version
+jq --version
+aws --version
+ssh -V
 ```
 
-### Ingress model
+## 2) Configure deployment inputs
 
-- **SSH access** is limited to `allowed_ssh_cidr`.
-- **No public ingress** is exposed for OpenClaw/Ollama service ports.
-- App access should occur only locally on the instance, through private networking, or via explicit secure tunneling if needed.
-
-## 2) Prerequisites
-
-- **Terraform**: use a current, team-approved version (recommended: `>= 1.5.x`).
-- **Ansible**: use a current stable release (recommended: `>= 2.15`).
-- **AWS account credentials** configured locally (for example via AWS CLI profiles or environment variables).
-- IAM principal used for deployment should have permissions for resources managed by this stack, typically including:
-  - VPC/networking (VPC, subnets, route tables, security groups)
-  - EC2 instances, key pair usage, and related metadata
-  - IAM actions only if your Terraform configuration creates/updates IAM resources
-  - Read/write access to Terraform backend resources (if remote state is used)
-
-## 3) Configuration
-
-1. Copy the example variable file:
+1. Copy and edit Terraform variables:
 
    ```bash
-   cp terraform.tfvars.example terraform.tfvars
+   cp terraform/terraform.tfvars.example terraform/terraform.tfvars
    ```
 
-2. Edit `terraform.tfvars` and set:
+2. In `terraform/terraform.tfvars`, set at least:
+   - `ssh_ingress_cidrs` to your fixed source CIDR(s) (prefer `/32` where possible).
+   - `key_name` or `public_key_path` for SSH key handling.
+   - Environment-specific values (`aws_region`, subnet CIDRs, instance sizing).
 
-   - `allowed_ssh_cidr` to your fixed public IP/CIDR (for example `203.0.113.10/32`).
+3. Export or configure AWS credentials (profile or environment variables).
 
-3. Review any additional variables (region, instance size, key name, tags, etc.) before provisioning.
+## 3) End-to-end deployment (Terraform then Ansible)
 
-## 4) Provisioning workflow
+### Step A — Provision infrastructure
 
-From the repository root:
+```bash
+terraform -chdir=terraform init
+terraform -chdir=terraform fmt -check
+terraform -chdir=terraform validate
+terraform -chdir=terraform plan -out tfplan
+terraform -chdir=terraform apply tfplan
+```
 
-1. Initialize Terraform:
+### Step B — Generate inventory from Terraform outputs
 
-   ```bash
-   terraform init
-   ```
+```bash
+./scripts/generate_inventory.sh
+```
 
-2. Review planned changes:
+By default this writes `ansible/inventory/hosts.ini` using `terraform output -json` and values like `ansible_host`, `ssh_user`, and `instance_id`.
 
-   ```bash
-   terraform plan
-   ```
+### Step C — Configure host and deploy services
 
-3. Apply infrastructure:
+```bash
+ansible-playbook -i ansible/inventory/hosts.ini ansible/playbooks/site.yml
+```
 
-   ```bash
-   terraform apply
-   ```
+Or run the helper wrapper (inventory generation + playbook):
 
-4. Export required Terraform outputs for Ansible inventory/vars (adjust output names to your module):
+```bash
+./scripts/deploy.sh
+```
 
-   ```bash
-   terraform output -json > terraform-outputs.json
-   ```
+## 4) Validation checklist (post-deploy)
 
-5. Run the Ansible playbook to configure services:
+Use this checklist after every deployment:
 
-   ```bash
-   ansible-playbook -i inventory.ini playbook.yml
-   ```
+1. SSH works only from allowed CIDR.
+2. No public app endpoints are reachable for OpenClaw/Ollama.
+3. OpenClaw and Ollama services are healthy.
 
-## 5) Verification
+Detailed validation commands are documented in:
+- `docs/runbooks/validation-checklist.md`
 
-After provisioning and configuration:
+## 5) Policy-as-code workflow
 
-1. **SSH from allowed IP works**
-   - From a client within `allowed_ssh_cidr`, confirm SSH succeeds.
+Run policy checks before Terraform apply:
 
-2. **SSH from non-allowed IP is denied**
-   - Attempt SSH from a different source IP/CIDR and confirm timeout/denial.
+- Local Conftest workflow.
+- Understanding and triaging `deny` messages.
 
-3. **OpenClaw service healthy on instance (local check)**
-   - SSH to EC2 and verify service status / local endpoint (for example `curl localhost:<port>/health`).
+See:
+- `docs/runbooks/policy-as-code.md`
 
-4. **Ollama service running and model available**
-   - On the instance, confirm service is active and list/test model availability (for example with `ollama list` or equivalent health check).
+## 6) Teardown and recovery procedures
 
-## 6) Security notes
+For controlled destruction, incident recovery, and rehydration:
 
-- **No public app ports**: Keeping OpenClaw/Ollama ports private reduces attack surface and prevents unsolicited internet access to inference/application endpoints.
-- **Patching and updates**:
-  - Regularly patch the EC2 OS and packages.
-  - Keep OpenClaw/Ollama and automation dependencies up to date.
-  - Rebuild/redeploy on a defined cadence.
-- **Keys and IAM hygiene**:
-  - Rotate SSH keys and any API credentials regularly.
-  - Use least-privilege IAM policies for both humans and automation roles.
-  - Prefer short-lived credentials (role assumption) over long-lived static keys.
+- `docs/runbooks/teardown-and-recovery.md`
 
-## 7) Destroy and cleanup
+## 7) Update and patch management guidance
 
-1. Tear down infrastructure:
+For OS, container, and dependency patching cadence:
 
-   ```bash
-   terraform destroy
-   ```
+- `docs/runbooks/update-and-patch-management.md`
 
-2. Remove local artifacts that may contain sensitive or environment-specific data, such as:
-   - `terraform.tfvars` (if it contains sensitive values)
-   - `terraform-outputs.json`
-   - local plan files, state backups, or generated inventory files
+## Notes on security defaults
 
-3. If applicable, revoke temporary credentials and remove no-longer-needed SSH keys.
+Current Terraform security group rules allow SSH plus ports 80/443 ingress. OpenClaw/Ollama ports should remain non-public, and you should enforce this through policy checks and validation. If 80/443 are not required in your environment, remove or restrict them in Terraform.
