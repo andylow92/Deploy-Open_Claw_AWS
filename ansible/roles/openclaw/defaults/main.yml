@@ -1,0 +1,6 @@
+---
+openclaw_repo_url: https://github.com/openclaw/openclaw.git
+openclaw_install_dir: /opt/openclaw
+openclaw_service_name: openclaw
+openclaw_run_with_docker: true
+openclaw_env: {}

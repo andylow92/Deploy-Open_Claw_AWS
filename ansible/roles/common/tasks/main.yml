@@ -1,0 +1,35 @@
+---
+- name: Update apt cache and upgrade packages
+  ansible.builtin.apt:
+    update_cache: true
+    upgrade: dist
+    cache_valid_time: 3600
+
+- name: Install baseline hardening packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - git
+      - vim
+      - ufw
+      - fail2ban
+      - unattended-upgrades
+    state: present
+
+- name: Allow OpenSSH through UFW
+  community.general.ufw:
+    rule: allow
+    name: OpenSSH
+  when: common_enable_ufw
+
+- name: Enable UFW
+  community.general.ufw:
+    state: enabled
+  when: common_enable_ufw
+
+- name: Ensure fail2ban service is enabled
+  ansible.builtin.service:
+    name: fail2ban
+    state: started
+    enabled: true
+  when: common_enable_fail2ban
